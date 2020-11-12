@@ -1,21 +1,24 @@
 package appserver
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"io/ioutil"
 	"net/http"
 )
 
 const (
 	HeaderAppSignature     = "shopware-app-signature"
-	HeaderWebhookSignature = "shopware-shop-signature"
+	HeaderPayloadSignature = "shopware-shop-signature"
 	RouteRegister          = "/setup/register"
 	RouteRegisterConfirm   = "/setup/register-confirm"
 	RouteWebhook           = "/webhook"
+	RouteAction            = "/action"
 )
 
 var (
@@ -31,7 +34,9 @@ type Server struct {
 	appName   string
 	appSecret string
 
-	webhooks        map[string]WebhookHandler
+	webhooks map[string]WebhookHandler
+	actions  map[string]ActionHandler
+
 	credentialStore CredentialStore
 	tokenStore      *tokenStore
 }
@@ -57,7 +62,9 @@ func NewServer(serverURL string, appName string, appSecret string, opts ...Serve
 	srv := &Server{
 		srv: e,
 
-		webhooks:        make(map[string]WebhookHandler),
+		webhooks: make(map[string]WebhookHandler),
+		actions:  make(map[string]ActionHandler),
+
 		credentialStore: credentialStore,
 		tokenStore:      newTokenStore(),
 
@@ -78,8 +85,9 @@ func NewServer(serverURL string, appName string, appSecret string, opts ...Serve
 	e.GET(RouteRegister, srv.registerHandler)
 	e.POST(RouteRegisterConfirm, srv.confirmHandler)
 
-	// webhooks
+	// incoming requests
 	e.POST(RouteWebhook, srv.webhookHandler)
+	e.POST(RouteAction, srv.actionHandler)
 
 	return srv
 }
@@ -94,8 +102,12 @@ func (srv *Server) Start(listenAddr string) error {
 	return srv.srv.Start(listenAddr)
 }
 
-func (srv *Server) On(event string, handler WebhookHandler) {
+func (srv *Server) Event(event string, handler WebhookHandler) {
 	srv.webhooks[event] = handler
+}
+
+func (srv *Server) Action(entity string, action string, handler ActionHandler) {
+	srv.actions[entity+action] = handler
 }
 
 func (srv *Server) registerHandler(c echo.Context) error {
@@ -132,4 +144,19 @@ func (srv *Server) confirmHandler(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusOK)
+}
+
+func (srv *Server) verifyPayloadSignature(c echo.Context) error {
+	body, err := ioutil.ReadAll(c.Request().Body)
+	if err != nil {
+		return err
+	}
+	c.Request().Body.Close()
+	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+	if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature)); !ok {
+		return ErrInvalidSignature
+	}
+
+	return nil
 }

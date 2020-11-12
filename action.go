@@ -1,30 +1,27 @@
 package appserver
 
 import (
-	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
 
-var (
-	ErrWebhookMissingEvent = errors.New("missing event")
-)
-
-type ErrWebhookHandlerNotFound struct {
-	event string
+type ErrActionHandlerNotFound struct {
+	entity string
+	action string
 }
 
-func (e ErrWebhookHandlerNotFound) Error() string {
-	return fmt.Sprintf("no webhook handler found for event: %s", e.event)
+func (e ErrActionHandlerNotFound) Error() string {
+	return fmt.Sprintf("no action handler found for entity %s, action %s", e.entity, e.action)
 }
 
-type WebhookHandler func(webhook WebhookRequest, api *ApiClient) error
+type ActionHandler func(action ActionRequest, api *ApiClient) error
 
-type WebhookRequest struct {
+type ActionRequest struct {
 	Data struct {
-		Payload map[string]interface{} `json:"payload"`
-		Event   string                 `json:"event"`
+		IDs    []string `json:"ids"`
+		Entity string   `json:"entity"`
+		Action string   `json:"action"`
 	} `json:"data"`
 
 	Source struct {
@@ -32,25 +29,31 @@ type WebhookRequest struct {
 		ShopURL    string `json:"url"`
 		AppVersion string `json:"appVersion"`
 	} `json:"source"`
+
+	Meta struct {
+		Timestamp   int64  `json:"timestamp"`
+		ReferenceID string `json:"reference"`
+		LanguageID  string `json:"language"`
+	} `json:"meta"`
 }
 
-func (srv *Server) webhookHandler(c echo.Context) error {
+func (srv *Server) actionHandler(c echo.Context) error {
 	if err := srv.verifyPayloadSignature(c); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
-	req := WebhookRequest{}
+	req := ActionRequest{}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	if len(req.Data.Event) == 0 {
+	if len(req.Data.Action) == 0 || len(req.Data.Entity) == 0 {
 		return ErrWebhookMissingEvent
 	}
 
-	h, ok := srv.webhooks[req.Data.Event]
+	h, ok := srv.actions[req.Data.Entity+req.Data.Action]
 	if !ok {
-		return ErrWebhookHandlerNotFound{event: req.Data.Event}
+		return ErrActionHandlerNotFound{entity: req.Data.Entity, action: req.Data.Action}
 	}
 
 	credentials, err := srv.credentialStore.Get(req.Source.ShopID)

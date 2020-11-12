@@ -53,7 +53,7 @@ func (c *ApiClient) Request(method string, path string, payload interface{}) (*h
 	return c.httpClient.Do(req)
 }
 
-func (c *ApiClient) GetAppConfig() (map[string]string, error) {
+func (c *ApiClient) GetAppConfig() (map[string]interface{}, error) {
 	resp, err := c.Request(http.MethodGet, "/api/v3/_action/system-config?domain="+c.appName+".config", nil)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (c *ApiClient) GetAppConfig() (map[string]string, error) {
 	}
 	resp.Body.Close()
 
-	out := map[string]string{}
+	out := map[string]interface{}{}
 	err = json.Unmarshal(bodyString, &out)
 	if err != nil {
 		return nil, err
