@@ -35,10 +35,6 @@ type WebhookRequest struct {
 }
 
 func (srv *Server) webhookHandler(c echo.Context) error {
-	if err := srv.verifyPayloadSignature(c); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
-
 	req := WebhookRequest{}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())

@@ -86,8 +86,9 @@ func NewServer(serverURL string, appName string, appSecret string, opts ...Serve
 	e.POST(RouteRegisterConfirm, srv.confirmHandler)
 
 	// incoming requests
-	e.POST(RouteWebhook, srv.webhookHandler)
-	e.POST(RouteAction, srv.actionHandler)
+	signatureEndpoints := e.Group("", srv.verifyPayloadSignature())
+	signatureEndpoints.POST(RouteWebhook, srv.webhookHandler)
+	signatureEndpoints.POST(RouteAction, srv.actionHandler)
 
 	return srv
 }
@@ -146,17 +147,21 @@ func (srv *Server) confirmHandler(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (srv *Server) verifyPayloadSignature(c echo.Context) error {
-	body, err := ioutil.ReadAll(c.Request().Body)
-	if err != nil {
-		return err
-	}
-	c.Request().Body.Close()
-	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(body))
+func (srv *Server) verifyPayloadSignature() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			body, err := ioutil.ReadAll(c.Request().Body)
+			if err != nil {
+				return err
+			}
+			c.Request().Body.Close()
+			c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(body))
 
-	if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature)); !ok {
-		return ErrInvalidSignature
-	}
+			if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature)); !ok {
+				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature)
+			}
 
-	return nil
+			return next(c)
+		}
+	}
 }

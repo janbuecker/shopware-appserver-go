@@ -1,9 +1,14 @@
 package appserver
 
 import (
+	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
+)
+
+var (
+	ErrActionMissingAction = errors.New("missing action or entity")
 )
 
 type ErrActionHandlerNotFound struct {
@@ -38,17 +43,13 @@ type ActionRequest struct {
 }
 
 func (srv *Server) actionHandler(c echo.Context) error {
-	if err := srv.verifyPayloadSignature(c); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
-
 	req := ActionRequest{}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	if len(req.Data.Action) == 0 || len(req.Data.Entity) == 0 {
-		return ErrWebhookMissingEvent
+		return ErrActionMissingAction
 	}
 
 	h, ok := srv.actions[req.Data.Entity+req.Data.Action]
