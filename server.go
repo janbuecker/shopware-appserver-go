@@ -86,9 +86,8 @@ func NewServer(serverURL string, appName string, appSecret string, opts ...Serve
 	e.POST(RouteRegisterConfirm, srv.confirmHandler)
 
 	// incoming requests
-	signatureEndpoints := e.Group("", srv.verifyPayloadSignature())
-	signatureEndpoints.POST(RouteWebhook, srv.webhookHandler)
-	signatureEndpoints.POST(RouteAction, srv.actionHandler)
+	e.POST(RouteWebhook, srv.webhookHandler, srv.verifyPayloadSignature())
+	e.POST(RouteAction, srv.actionHandler, srv.verifyPayloadSignature())
 
 	return srv
 }
@@ -158,7 +157,7 @@ func (srv *Server) verifyPayloadSignature() echo.MiddlewareFunc {
 			c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(body))
 
 			if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature)); !ok {
-				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature)
+				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
 			}
 
 			return next(c)
