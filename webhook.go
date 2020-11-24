@@ -22,16 +22,12 @@ func (e ErrWebhookHandlerNotFound) Error() string {
 type WebhookHandler func(webhook WebhookRequest, api *ApiClient) error
 
 type WebhookRequest struct {
+	*AppRequest
+
 	Data struct {
 		Payload map[string]interface{} `json:"payload"`
 		Event   string                 `json:"event"`
 	} `json:"data"`
-
-	Source struct {
-		ShopID     string `json:"shopId"`
-		ShopURL    string `json:"url"`
-		AppVersion string `json:"appVersion"`
-	} `json:"source"`
 }
 
 func (srv *Server) webhookHandler(c echo.Context) error {

@@ -23,17 +23,13 @@ func (e ErrActionHandlerNotFound) Error() string {
 type ActionHandler func(action ActionRequest, api *ApiClient) error
 
 type ActionRequest struct {
+	*AppRequest
+
 	Data struct {
 		IDs    []string `json:"ids"`
 		Entity string   `json:"entity"`
 		Action string   `json:"action"`
 	} `json:"data"`
-
-	Source struct {
-		ShopID     string `json:"shopId"`
-		ShopURL    string `json:"url"`
-		AppVersion string `json:"appVersion"`
-	} `json:"source"`
 
 	Meta struct {
 		Timestamp   int64  `json:"timestamp"`

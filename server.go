@@ -5,9 +5,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/thanhpk/randstr"
 	"io/ioutil"
 	"net/http"
 )
@@ -48,11 +50,22 @@ type RegistrationResponse struct {
 }
 
 type Credentials struct {
-	APIKey    string `json:"apiKey"`
-	SecretKey string `json:"secretKey"`
-	Timestamp string `json:"timestamp"`
-	ShopURL   string `json:"shopUrl"`
-	ShopID    string `json:"shopId"`
+	APIKey     string `json:"apiKey"`
+	SecretKey  string `json:"secretKey"`
+	Timestamp  string `json:"timestamp" query:"timestamp"`
+	ShopURL    string `json:"shopUrl" query:"shop-url"`
+	ShopID     string `json:"shopId" query:"shop-id"`
+	ShopSecret string `json:"shopSecret"`
+}
+
+type Source struct {
+	ShopID     string `json:"shopId"`
+	ShopURL    string `json:"url"`
+	AppVersion string `json:"appVersion"`
+}
+
+type AppRequest struct {
+	Source Source `json:"source"`
 }
 
 func NewServer(serverURL string, appName string, appSecret string, opts ...ServerOpt) *Server {
@@ -111,34 +124,54 @@ func (srv *Server) Action(entity string, action string, handler ActionHandler) {
 }
 
 func (srv *Server) registerHandler(c echo.Context) error {
-	if !srv.verifySignature([]byte(c.QueryString()), c.Request().Header.Get(HeaderAppSignature)) {
+	if !srv.verifySignature([]byte(c.QueryString()), c.Request().Header.Get(HeaderAppSignature), srv.appSecret) {
 		return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature)
 	}
 
+	credentials := Credentials{}
+	if err := c.Bind(&credentials); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
 	h := hmac.New(sha256.New, []byte(srv.appSecret))
-	h.Write([]byte(c.QueryParam("shop-id") + c.QueryParam("shop-url") + srv.appName))
+	h.Write([]byte(credentials.ShopID + credentials.ShopURL + srv.appName))
+
+	credentials.ShopSecret = randstr.Base62(16)
+
+	err := srv.credentialStore.Store(&credentials)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
 	return c.JSON(http.StatusOK, RegistrationResponse{
-		Secret:          srv.appSecret,
+		Secret:          credentials.ShopSecret,
 		Proof:           hex.EncodeToString(h.Sum(nil)),
 		ConfirmationURL: srv.serverURL + RouteRegisterConfirm,
 	})
 }
 
-func (srv *Server) verifySignature(data []byte, signature string) bool {
-	h := hmac.New(sha256.New, []byte(srv.appSecret))
+func (srv *Server) verifySignature(data []byte, signature string, key string) bool {
+	h := hmac.New(sha256.New, []byte(key))
 	h.Write(data)
 
 	return hex.EncodeToString(h.Sum(nil)) == signature
 }
 
 func (srv *Server) confirmHandler(c echo.Context) error {
-	credentials := Credentials{}
-	if err := c.Bind(&credentials); err != nil {
+	input := Credentials{}
+	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	err := srv.credentialStore.Store(&credentials)
+	credentials, err := srv.credentialStore.Get(input.ShopID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	credentials.APIKey = input.APIKey
+	credentials.SecretKey = input.SecretKey
+
+	err = srv.credentialStore.Store(credentials)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -156,7 +189,18 @@ func (srv *Server) verifyPayloadSignature() echo.MiddlewareFunc {
 			c.Request().Body.Close()
 			c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(body))
 
-			if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature)); !ok {
+			appReq := AppRequest{}
+			err = json.Unmarshal(body, &appReq)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
+			}
+
+			credentials, err := srv.credentialStore.Get(appReq.Source.ShopID)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
+			}
+
+			if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature), credentials.ShopSecret); !ok {
 				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
 			}
 

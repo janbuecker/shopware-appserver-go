@@ -18,7 +18,6 @@
 - **Automated handshake** for easy installation in Shopware
 - **Easy configuration** with no additional router set-up needed
 - **Generic endpoints** for admin action buttons and webhooks 
-- **Runs anywhere** with **no external dependencies**
 - Written in Go, a language with high memory safety guarantees 
 
 ## Quick start
