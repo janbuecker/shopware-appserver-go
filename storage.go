@@ -18,7 +18,7 @@ type CredentialStore interface {
 
 type tokenStore struct {
 	accessTokens   map[string]*oauth2.Token
-	accessTokensMu sync.Mutex
+	accessTokensMu sync.RWMutex
 }
 
 func newTokenStore() *tokenStore {
@@ -28,6 +28,8 @@ func newTokenStore() *tokenStore {
 }
 
 func (s *tokenStore) Get(shopID string) (*oauth2.Token, bool) {
+	s.accessTokensMu.RLock()
+	defer s.accessTokensMu.RUnlock()
 	if token, ok := s.accessTokens[shopID]; ok {
 		return token, true
 	}

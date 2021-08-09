@@ -124,7 +124,11 @@ func (srv *Server) Action(entity string, action string, handler ActionHandler) {
 }
 
 func (srv *Server) registerHandler(c echo.Context) error {
-	if !srv.verifySignature([]byte(c.QueryString()), c.Request().Header.Get(HeaderAppSignature), srv.appSecret) {
+	signature, err := hex.DecodeString(c.Request().Header.Get(HeaderAppSignature))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature)
+	}
+	if !srv.verifySignature([]byte(c.QueryString()), signature, srv.appSecret) {
 		return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature)
 	}
 
@@ -138,7 +142,7 @@ func (srv *Server) registerHandler(c echo.Context) error {
 
 	credentials.ShopSecret = randstr.Base62(16)
 
-	err := srv.credentialStore.Store(&credentials)
+	err = srv.credentialStore.Store(&credentials)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -150,11 +154,11 @@ func (srv *Server) registerHandler(c echo.Context) error {
 	})
 }
 
-func (srv *Server) verifySignature(data []byte, signature string, key string) bool {
+func (srv *Server) verifySignature(data []byte, signature []byte, key string) bool {
 	h := hmac.New(sha256.New, []byte(key))
 	h.Write(data)
 
-	return hex.EncodeToString(h.Sum(nil)) == signature
+	return hmac.Equal(h.Sum(nil), signature)
 }
 
 func (srv *Server) confirmHandler(c echo.Context) error {
@@ -200,7 +204,11 @@ func (srv *Server) verifyPayloadSignature() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
 			}
 
-			if ok := srv.verifySignature(body, c.Request().Header.Get(HeaderPayloadSignature), credentials.ShopSecret); !ok {
+			signature, err := hex.DecodeString(c.Request().Header.Get(HeaderPayloadSignature))
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
+			}
+			if ok := srv.verifySignature(body, signature, credentials.ShopSecret); !ok {
 				return echo.NewHTTPError(http.StatusBadRequest, ErrInvalidSignature.Error())
 			}
 
