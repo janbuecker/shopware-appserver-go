@@ -30,7 +30,7 @@ var (
 type ServerOpt func(s *Server)
 
 type Server struct {
-	srv *echo.Echo
+	Srv *echo.Echo
 
 	serverURL string
 	appName   string
@@ -73,7 +73,7 @@ func NewServer(serverURL string, appName string, appSecret string, opts ...Serve
 	credentialStore := NewMemoryCredentialStore()
 
 	srv := &Server{
-		srv: e,
+		Srv: e,
 
 		webhooks: make(map[string]WebhookHandler),
 		actions:  make(map[string]ActionHandler),
@@ -112,7 +112,7 @@ func WithCredentialStore(store CredentialStore) ServerOpt {
 }
 
 func (srv *Server) Start(listenAddr string) error {
-	return srv.srv.Start(listenAddr)
+	return srv.Srv.Start(listenAddr)
 }
 
 func (srv *Server) Event(event string, handler WebhookHandler) {
