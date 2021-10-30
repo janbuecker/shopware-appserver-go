@@ -2,8 +2,9 @@ package appserver
 
 import (
 	"errors"
-	"golang.org/x/oauth2"
 	"sync"
+
+	"golang.org/x/oauth2"
 )
 
 var (

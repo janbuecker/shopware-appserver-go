@@ -1,10 +1,11 @@
 package appserver
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -20,7 +21,7 @@ func (e ErrActionHandlerNotFound) Error() string {
 	return fmt.Sprintf("no action handler found for entity %s, action %s", e.entity, e.action)
 }
 
-type ActionHandler func(action ActionRequest, api *ApiClient) error
+type ActionHandler func(action ActionRequest, api *APIClient) error
 
 type ActionRequest struct {
 	*AppRequest
@@ -38,30 +39,40 @@ type ActionRequest struct {
 	} `json:"meta"`
 }
 
-func (srv *Server) actionHandler(c echo.Context) error {
-	req := ActionRequest{}
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+func (srv *Server) HandleAction(req *http.Request) error {
+	if err := srv.verifyPayloadSignature(req); err != nil {
+		return err
 	}
 
-	if len(req.Data.Action) == 0 || len(req.Data.Entity) == 0 {
+	body, err := extractBody(req)
+	if err != nil {
+		return errors.Wrap(err, "extract body")
+	}
+
+	actionReq := ActionRequest{}
+	err = json.Unmarshal(body, &actionReq)
+	if err != nil {
+		return errors.Wrap(err, "parse body")
+	}
+
+	if len(actionReq.Data.Action) == 0 || len(actionReq.Data.Entity) == 0 {
 		return ErrActionMissingAction
 	}
 
-	h, ok := srv.actions[req.Data.Entity+req.Data.Action]
+	h, ok := srv.actions[actionReq.Data.Entity+actionReq.Data.Action]
 	if !ok {
-		return ErrActionHandlerNotFound{entity: req.Data.Entity, action: req.Data.Action}
+		return ErrActionHandlerNotFound{entity: actionReq.Data.Entity, action: actionReq.Data.Action}
 	}
 
-	credentials, err := srv.credentialStore.Get(req.Source.ShopID)
+	credentials, err := srv.credentialStore.Get(actionReq.Source.ShopID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		return errors.Wrap(err, "get shop credentials")
 	}
 
-	err = h(req, newApiClient(srv.appName, credentials, srv.tokenStore))
+	err = h(actionReq, newAPIClient(srv.appName, credentials, srv.tokenStore))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+		return errors.Wrap(err, "handler")
 	}
 
-	return c.NoContent(http.StatusOK)
+	return nil
 }

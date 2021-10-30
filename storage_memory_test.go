@@ -1,9 +1,10 @@
 package appserver
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMemoryCredentialStore_Store(t *testing.T) {

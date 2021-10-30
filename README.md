@@ -1,9 +1,9 @@
 <p align="center">
-	<a href="https://shopware.com.com"><img src="https://assets.shopware.com/media/logos/shopware_logo_blue.svg" alt="Shopware" width="450"></a>
+   <a href="https://shopware.com.com"><img src="https://assets.shopware.com/media/logos/shopware_logo_blue.svg" alt="Shopware" width="450"></a>
 </p>
 <hr>
 <h3 align="center">Foundation for Shopware apps based on Go</h3>
-<p align="center">This server library provides and easy to set-up web sever for apps with a Go backend server.</p>
+<p align="center">This library provides helper functions to write Shopware apps with a Go backend server. The library handles authorization as well as webhooks and actions.</p>
 
 
 ### Menu
@@ -17,8 +17,8 @@
 
 - **Automated handshake** for easy installation in Shopware
 - **Easy configuration** with no additional router set-up needed
-- **Generic endpoints** for admin action buttons and webhooks 
-- Written in Go, a language with high memory safety guarantees 
+- **Generic endpoints** for admin action buttons and webhooks
+- Written in Go, a language with high memory safety guarantees
 
 ## Quick start
 
@@ -36,12 +36,12 @@ The app server comes with two storage engines included, in-memory and [bbolt](ht
 
 #### in-memory (default)
 
-This storages resets on every restart of the server and should only be used for quick-start purposes. 
-All information are lost when the process is killed. This storage is used by default.
+This storage resets on every restart of the server and should only be used for quick-start purposes.
+All information is lost when the process is killed. This storage is used by default.
 
 #### bbolt
 
-bbolt is a key/value store based on files provide a simple, fast, and reliable database for projects 
+bbolt is a key/value store based on files to provide a simple, fast, and reliable database for projects
 that don't require a full database server such as Postgres or MySQL
 
 ```go
@@ -52,19 +52,29 @@ if err != nil {
 defer store.Close()
 
 srv := appserver.NewServer(
-    "https://appserver.com",
     "AppName",
     "AppSecret",
+    "https://appserver.com/setup/register-confirm",
     appserver.WithCredentialStore(store),
 )
-
-log.Fatal(srv.Start(":10100"))
 ```
 
 ### Events
 
-To listen on an event, add the event to your `manifest.xml` file in your app and point it to `/webhook`. 
-Verifying the signature is done automatically done for you.
+First, register a `POST` route in your web server and use `HandleWebhook` inside the handler:
+
+```go
+mux.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
+    if err := srv.HandleWebhook(r); err != nil {
+      // handle errors
+   }
+
+    // webhook handled successfully
+})
+```
+
+To listen on an event, add the event to your `manifest.xml` file in your app and point it to your webhook endpoint.
+Verifying the signature is done automatically for you.
 
 **manifest.xml**
 
@@ -74,7 +84,7 @@ Verifying the signature is done automatically done for you.
 </webhooks>
 ```
 
-You can then register an event listener to the appserver:
+You can then register an event listener to the app server:
 
 ```go
 srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.ApiClient) error {
@@ -86,8 +96,20 @@ srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *a
 
 ### Action buttons
 
-To listen on a click on an action button, add the action button to your `manifest.xml` file in your app and point it to `/action`. 
-Verifying the signature is done automatically done for you.
+First, register a `POST` route in your web server and use `HandleAction` inside the handler:
+
+```go
+mux.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
+    if err := srv.HandleAction(r); err != nil {
+      // handle errors
+   }
+
+    // action handled successfully
+})
+```
+
+To listen on a click on an action button, add the action button to your `manifest.xml` file in your app and point it to `/action`.
+Verifying the signature is done automatically for you.
 
 **manifest.xml**
 
@@ -99,7 +121,7 @@ Verifying the signature is done automatically done for you.
 </admin>
 ```
 
-You can then register an admin action listener to the appserver:
+You can then register an admin action listener to the app server:
 
 ```go
 srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.ApiClient) error {
@@ -111,38 +133,86 @@ srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *a
 
 ### Full example
 
-Here is a full example on an appserver that listens to events and action buttons.
+Here is a full example on an app server, that uses the standard http package and listens for events and action buttons.
 
 ```go
 package main
 
 import (
-	appserver "github.com/shopwareLabs/GoAppserver"
-	"log"
+   "encoding/json"
+   "log"
+   "net/http"
+   
+   appserver "github.com/shopwareLabs/GoAppserver"
 )
 
 func main() {
-	srv := appserver.NewServer(
-		"https://appserver.com",
-		"AppName",
-		"AppSecret",
-	)
+   srv := appserver.NewServer(
+      "AppName",
+      "AppSecret",
+      "https://appserver.com/setup/register-confirm",
+   )
 
-	// event listener
-	srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.ApiClient) error {
-		// do something on this event
-		
-		return nil
-	})
+   // event listener
+   srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.ApiClient) error {
+      // do something on this event
+      
+      return nil
+   })
 
-	// action buttons
-	srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.ApiClient) error {
-		// do something when someone clicks the action button
-		
-		return nil
-	})
+   // action buttons
+   srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.ApiClient) error {
+      // do something when someone clicks the action button
+      
+      return nil
+   })
+   
+   // register routes and start server
+   mux := http.NewServeMux()
+   mux.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
+      if err := srv.HandleWebhook(r); err != nil {
+         http.Error(w, err.Error(), http.StatusBadRequest)
+         return
+      }
 
-	log.Fatal(srv.Start(":10100"))
+      w.WriteHeader(200)
+   })
+   mux.HandleFunc("/action", func(w http.ResponseWriter, r *http.Request) {
+      if err := srv.HandleAction(r); err != nil {
+         http.Error(w, err.Error(), http.StatusBadRequest)
+         return
+      }
+
+      w.WriteHeader(200)
+   })
+   mux.HandleFunc("/setup/register", func(w http.ResponseWriter, r *http.Request) {
+      reg, err := srv.HandleRegistration(r)
+      if err != nil {
+         http.Error(w, err.Error(), http.StatusBadRequest)
+         return
+      }
+
+      regJSON, err := json.Marshal(reg)
+      if err != nil {
+         http.Error(w, err.Error(), http.StatusInternalServerError)
+         return
+      }
+
+      w.WriteHeader(200)
+      w.Write(regJSON)
+   })
+
+   mux.HandleFunc("/setup/register-confirm", func(w http.ResponseWriter, r *http.Request) {
+      if err := srv.HandleConfirm(r); err != nil {
+         http.Error(w, err.Error(), http.StatusBadRequest)
+         return
+      }
+
+      w.WriteHeader(200)
+   })
+
+   log.Println("Listening on port 10100")
+   log.Fatal(http.ListenAndServe(":10100", mux))
 }
 ```
 

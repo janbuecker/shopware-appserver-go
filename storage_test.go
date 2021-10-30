@@ -1,9 +1,10 @@
 package appserver
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
-	"testing"
 )
 
 func TestTokenStore_Store(t *testing.T) {

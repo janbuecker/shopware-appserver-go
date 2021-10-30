@@ -4,22 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"io/ioutil"
-	"net/http"
 )
 
-type ApiClient struct {
+type APIClient struct {
 	appName     string
 	credentials *Credentials
 	tokenStore  *tokenStore
 	httpClient  *retryablehttp.Client
 }
 
-func newApiClient(appName string, credentials *Credentials, tokenStore *tokenStore) *ApiClient {
-	return &ApiClient{
+func newAPIClient(appName string, credentials *Credentials, tokenStore *tokenStore) *APIClient {
+	return &APIClient{
 		appName:     appName,
 		credentials: credentials,
 		tokenStore:  tokenStore,
@@ -27,7 +28,7 @@ func newApiClient(appName string, credentials *Credentials, tokenStore *tokenSto
 	}
 }
 
-func (c *ApiClient) Request(method string, path string, payload interface{}) (*http.Response, error) {
+func (c *APIClient) Request(method string, path string, payload interface{}) (*http.Response, error) {
 	token, err := c.getTokenForShop(c.credentials.ShopID)
 	if err != nil {
 		return nil, fmt.Errorf("get token: %v", err)
@@ -53,8 +54,8 @@ func (c *ApiClient) Request(method string, path string, payload interface{}) (*h
 	return c.httpClient.Do(req)
 }
 
-func (c *ApiClient) GetAppConfig() (map[string]interface{}, error) {
-	resp, err := c.Request(http.MethodGet, "/api/v3/_action/system-config?domain="+c.appName+".config", nil)
+func (c *APIClient) GetAppConfig() (map[string]interface{}, error) {
+	resp, err := c.Request(http.MethodGet, "/api/_action/system-config?domain="+c.appName+".config", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +75,7 @@ func (c *ApiClient) GetAppConfig() (map[string]interface{}, error) {
 	return out, nil
 }
 
-func (c *ApiClient) getTokenForShop(shopID string) (*oauth2.Token, error) {
+func (c *APIClient) getTokenForShop(shopID string) (*oauth2.Token, error) {
 	if token, ok := c.tokenStore.Get(shopID); ok {
 		return token, nil
 	}
