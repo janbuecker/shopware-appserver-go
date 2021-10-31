@@ -87,7 +87,7 @@ Verifying the signature is done automatically for you.
 You can then register an event listener to the app server:
 
 ```go
-srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.ApiClient) error {
+srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.APIClient) error {
     // do something on this event
 
     return nil
@@ -124,7 +124,7 @@ Verifying the signature is done automatically for you.
 You can then register an admin action listener to the app server:
 
 ```go
-srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.ApiClient) error {
+srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.APIClient) error {
     // do something when someone clicks the action button
 
     return nil
@@ -154,14 +154,14 @@ func main() {
    )
 
    // event listener
-   srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.ApiClient) error {
+   srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.APIClient) error {
       // do something on this event
       
       return nil
    })
 
    // action buttons
-   srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.ApiClient) error {
+   srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.APIClient) error {
       // do something when someone clicks the action button
       
       return nil
