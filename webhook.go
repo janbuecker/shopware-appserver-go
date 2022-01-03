@@ -26,7 +26,7 @@ type WebhookRequest struct {
 	*AppRequest
 
 	Data struct {
-		Payload map[string]interface{} `json:"payload"`
+		Payload []map[string]interface{} `json:"payload"`
 		Event   string                 `json:"event"`
 	} `json:"data"`
 }
