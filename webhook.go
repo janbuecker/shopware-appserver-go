@@ -62,7 +62,7 @@ func (srv Server) HandleWebhook(req *http.Request) error {
 		return fmt.Errorf("get shop credentials: %w", err)
 	}
 
-	err = h(webhookReq, newAPIClient(srv.appName, credentials, srv.tokenStore))
+	err = h(webhookReq, newAPIClient(srv.httpClient, srv.appName, credentials, srv.tokenStore))
 	if err != nil {
 		return fmt.Errorf("handler: %w", err)
 	}

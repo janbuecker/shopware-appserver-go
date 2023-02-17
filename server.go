@@ -3,7 +3,10 @@ package appserver
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"runtime"
+	"time"
 )
 
 const (
@@ -23,6 +26,8 @@ type Server struct {
 
 	credentialStore CredentialStore
 	tokenStore      *tokenStore
+
+	httpClient *http.Client
 }
 
 type Credentials struct {
@@ -63,12 +68,22 @@ func NewServer(appName string, appSecret string, confirmationURL string, opts ..
 		o(srv)
 	}
 
+	if srv.httpClient == nil {
+		srv.httpClient = createDefaultHTTPClient()
+	}
+
 	return srv
 }
 
 func WithCredentialStore(store CredentialStore) ServerOpt {
 	return func(s *Server) {
 		s.credentialStore = store
+	}
+}
+
+func WithHTTPClient(client *http.Client) ServerOpt {
+	return func(s *Server) {
+		s.httpClient = client
 	}
 }
 
@@ -91,4 +106,23 @@ func extractBody(req *http.Request) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func createDefaultHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConnsPerHost:   runtime.GOMAXPROCS(0) + 1,
+		},
+	}
 }

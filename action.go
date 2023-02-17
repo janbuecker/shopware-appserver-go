@@ -66,7 +66,7 @@ func (srv *Server) HandleAction(req *http.Request) error {
 		return fmt.Errorf("get shop credentials: %w", err)
 	}
 
-	err = h(actionReq, newAPIClient(srv.appName, credentials, srv.tokenStore))
+	err = h(actionReq, newAPIClient(srv.httpClient, srv.appName, credentials, srv.tokenStore))
 	if err != nil {
 		return fmt.Errorf("handler: %w", err)
 	}

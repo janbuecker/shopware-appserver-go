@@ -1,13 +1,13 @@
 package appserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -16,15 +16,15 @@ type APIClient struct {
 	appName     string
 	credentials Credentials
 	tokenStore  *tokenStore
-	httpClient  *retryablehttp.Client
+	httpClient  *http.Client
 }
 
-func newAPIClient(appName string, credentials Credentials, tokenStore *tokenStore) *APIClient {
+func newAPIClient(httpClient *http.Client, appName string, credentials Credentials, tokenStore *tokenStore) *APIClient {
 	return &APIClient{
 		appName:     appName,
 		credentials: credentials,
 		tokenStore:  tokenStore,
-		httpClient:  retryablehttp.NewClient(),
+		httpClient:  httpClient,
 	}
 }
 
@@ -42,7 +42,7 @@ func (c *APIClient) Request(method string, path string, payload interface{}) (*h
 		}
 	}
 
-	req, err := retryablehttp.NewRequest(method, c.credentials.ShopURL+path, pdata)
+	req, err := http.NewRequest(method, c.credentials.ShopURL+path, bytes.NewReader(pdata))
 	if err != nil {
 		return nil, err
 	}
