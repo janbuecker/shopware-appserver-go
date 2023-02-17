@@ -1,6 +1,7 @@
 package appserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +18,7 @@ func (e WebhookHandlerNotFoundError) Error() string {
 	return fmt.Sprintf("no webhook handler found for event: %s", e.event)
 }
 
-type WebhookHandler func(webhook WebhookRequest, api *APIClient) error
+type WebhookHandler func(ctx context.Context, webhook WebhookRequest, api *APIClient) error
 
 type WebhookRequest struct {
 	*AppRequest
@@ -62,7 +63,7 @@ func (srv Server) HandleWebhook(req *http.Request) error {
 		return fmt.Errorf("get shop credentials: %w", err)
 	}
 
-	err = h(webhookReq, newAPIClient(srv.httpClient, srv.appName, credentials, srv.tokenStore))
+	err = h(req.Context(), webhookReq, newAPIClient(srv.httpClient, srv.appName, credentials, srv.tokenStore))
 	if err != nil {
 		return fmt.Errorf("handler: %w", err)
 	}

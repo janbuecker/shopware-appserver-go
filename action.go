@@ -1,6 +1,7 @@
 package appserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +19,7 @@ func (e ActionHandlerNotFoundError) Error() string {
 	return fmt.Sprintf("no action handler found for entity %s, action %s", e.entity, e.action)
 }
 
-type ActionHandler func(action ActionRequest, api *APIClient) error
+type ActionHandler func(ctx context.Context, action ActionRequest, api *APIClient) error
 
 type ActionRequest struct {
 	*AppRequest
@@ -66,7 +67,7 @@ func (srv *Server) HandleAction(req *http.Request) error {
 		return fmt.Errorf("get shop credentials: %w", err)
 	}
 
-	err = h(actionReq, newAPIClient(srv.httpClient, srv.appName, credentials, srv.tokenStore))
+	err = h(req.Context(), actionReq, newAPIClient(srv.httpClient, srv.appName, credentials, srv.tokenStore))
 	if err != nil {
 		return fmt.Errorf("handler: %w", err)
 	}

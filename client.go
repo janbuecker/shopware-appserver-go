@@ -28,7 +28,7 @@ func newAPIClient(httpClient *http.Client, appName string, credentials Credentia
 	}
 }
 
-func (c *APIClient) Request(method string, path string, payload interface{}) (*http.Response, error) {
+func (c *APIClient) Request(ctx context.Context, method string, path string, payload interface{}) (*http.Response, error) {
 	token, err := c.getTokenForShop(c.credentials.ShopID)
 	if err != nil {
 		return nil, fmt.Errorf("get token: %v", err)
@@ -42,7 +42,7 @@ func (c *APIClient) Request(method string, path string, payload interface{}) (*h
 		}
 	}
 
-	req, err := http.NewRequest(method, c.credentials.ShopURL+path, bytes.NewReader(pdata))
+	req, err := http.NewRequestWithContext(ctx, method, c.credentials.ShopURL+path, bytes.NewReader(pdata))
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +54,8 @@ func (c *APIClient) Request(method string, path string, payload interface{}) (*h
 	return c.httpClient.Do(req)
 }
 
-func (c *APIClient) GetAppConfig() (map[string]interface{}, error) {
-	resp, err := c.Request(http.MethodGet, "/api/_action/system-config?domain="+c.appName+".config", nil)
+func (c *APIClient) GetAppConfig(ctx context.Context) (map[string]interface{}, error) {
+	resp, err := c.Request(ctx, http.MethodGet, "/api/_action/system-config?domain="+c.appName+".config", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -26,7 +26,7 @@ func TestVerifyPayloadSignature(t *testing.T) {
 	}))
 
 	srv := appserver.NewServer("", "", "mysecret", appserver.WithCredentialStore(store))
-	srv.Event("foo", func(webhook appserver.WebhookRequest, api *appserver.APIClient) error {
+	srv.Event("foo", func(_ context.Context, webhook appserver.WebhookRequest, api *appserver.APIClient) error {
 		return nil
 	})
 
