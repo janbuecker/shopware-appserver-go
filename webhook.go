@@ -2,21 +2,18 @@ package appserver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
-var (
-	ErrWebhookMissingEvent = errors.New("missing event")
-)
+var ErrWebhookMissingEvent = errors.New("missing event")
 
-type ErrWebhookHandlerNotFound struct {
+type WebhookHandlerNotFoundError struct {
 	event string
 }
 
-func (e ErrWebhookHandlerNotFound) Error() string {
+func (e WebhookHandlerNotFoundError) Error() string {
 	return fmt.Sprintf("no webhook handler found for event: %s", e.event)
 }
 
@@ -38,7 +35,7 @@ func (srv Server) HandleWebhook(req *http.Request) error {
 
 	body, err := extractBody(req)
 	if err != nil {
-		return errors.Wrap(err, "extract body")
+		return fmt.Errorf("extract body: %w", err)
 	}
 
 	if len(body) == 0 {
@@ -48,7 +45,7 @@ func (srv Server) HandleWebhook(req *http.Request) error {
 	webhookReq := WebhookRequest{}
 	err = json.Unmarshal(body, &webhookReq)
 	if err != nil {
-		return errors.Wrap(err, "parse body")
+		return fmt.Errorf("parse body: %w", err)
 	}
 
 	if len(webhookReq.Data.Event) == 0 {
@@ -57,17 +54,17 @@ func (srv Server) HandleWebhook(req *http.Request) error {
 
 	h, ok := srv.webhooks[webhookReq.Data.Event]
 	if !ok {
-		return ErrWebhookHandlerNotFound{event: webhookReq.Data.Event}
+		return WebhookHandlerNotFoundError{event: webhookReq.Data.Event}
 	}
 
-	credentials, err := srv.credentialStore.Get(webhookReq.Source.ShopID)
+	credentials, err := srv.credentialStore.Get(req.Context(), webhookReq.Source.ShopID)
 	if err != nil {
-		return errors.Wrap(err, "get shop credentials")
+		return fmt.Errorf("get shop credentials: %w", err)
 	}
 
 	err = h(webhookReq, newAPIClient(srv.appName, credentials, srv.tokenStore))
 	if err != nil {
-		return errors.Wrap(err, "handler")
+		return fmt.Errorf("handler: %w", err)
 	}
 
 	return nil

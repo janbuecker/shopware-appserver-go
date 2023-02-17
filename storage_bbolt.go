@@ -1,6 +1,7 @@
 package appserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,7 +40,7 @@ func NewBBoltStore(path string) (*BBoltStore, error) {
 	return &b, nil
 }
 
-func (s *BBoltStore) Store(credentials *Credentials) error {
+func (s *BBoltStore) Store(ctx context.Context, credentials Credentials) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		cred, err := json.Marshal(credentials)
 		if err != nil {
@@ -51,7 +52,7 @@ func (s *BBoltStore) Store(credentials *Credentials) error {
 	})
 }
 
-func (s *BBoltStore) Get(shopID string) (*Credentials, error) {
+func (s *BBoltStore) Get(ctx context.Context, shopID string) (Credentials, error) {
 	var credentials Credentials
 
 	err := s.db.View(func(tx *bolt.Tx) error {
@@ -61,13 +62,13 @@ func (s *BBoltStore) Get(shopID string) (*Credentials, error) {
 		return json.Unmarshal(v, &credentials)
 	})
 	if err != nil {
-		return nil, err
+		return Credentials{}, err
 	}
 
-	return &credentials, nil
+	return credentials, nil
 }
 
-func (s *BBoltStore) Delete(shopID string) error {
+func (s *BBoltStore) Delete(ctx context.Context, shopID string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(s.bucket)
 		return b.Delete([]byte(shopID))

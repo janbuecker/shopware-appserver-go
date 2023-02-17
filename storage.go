@@ -1,20 +1,19 @@
 package appserver
 
 import (
+	"context"
 	"errors"
 	"sync"
 
 	"golang.org/x/oauth2"
 )
 
-var (
-	ErrCredentialsNotFound = errors.New("credentials for shop not found")
-)
+var ErrCredentialsNotFound = errors.New("credentials for shop not found")
 
 type CredentialStore interface {
-	Store(credentials *Credentials) error
-	Get(shopID string) (*Credentials, error)
-	Delete(shopID string) error
+	Store(ctx context.Context, credentials Credentials) error
+	Get(ctx context.Context, shopID string) (Credentials, error)
+	Delete(ctx context.Context, shopID string) error
 }
 
 type tokenStore struct {

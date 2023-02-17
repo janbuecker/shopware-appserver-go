@@ -1,11 +1,13 @@
 package appserver_test
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	appserver "github.com/shopwareLabs/GoAppserver"
+	appserver "github.com/janbuecker/shopware-appserver-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +20,7 @@ const (
 
 func TestVerifyPayloadSignature(t *testing.T) {
 	store := appserver.NewMemoryCredentialStore()
-	require.NoError(t, store.Store(&appserver.Credentials{
+	require.NoError(t, store.Store(context.Background(), appserver.Credentials{
 		ShopID:     "123",
 		ShopSecret: "mysecret",
 	}))
@@ -29,18 +31,18 @@ func TestVerifyPayloadSignature(t *testing.T) {
 	})
 
 	// test without signature
-	req := httptest.NewRequest("GET", "/", strings.NewReader(verifyPayloadSignatureTestPayload))
+	req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(verifyPayloadSignatureTestPayload))
 	err := srv.HandleWebhook(req)
 	assert.EqualError(t, err, "invalid signature")
 
 	// test with invalid signature
-	req = httptest.NewRequest("POST", "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
+	req = httptest.NewRequest(http.MethodPost, "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
 	req.Header.Set(appserver.HeaderPayloadSignature, "foo")
 	err = srv.HandleWebhook(req)
 	assert.EqualError(t, err, "invalid signature")
 
 	// test with valid signature
-	req = httptest.NewRequest("POST", "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
+	req = httptest.NewRequest(http.MethodPost, "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
 	req.Header.Set(appserver.HeaderPayloadSignature, verifyPayloadSignatureTestSignature)
 	err = srv.HandleWebhook(req)
 	assert.NoError(t, err)

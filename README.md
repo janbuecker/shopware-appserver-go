@@ -27,7 +27,7 @@
 To start using the app server, install Go and run `go get`:
 
 ```sh
-$ go get github.com/shopwareLabs/GoAppserver
+$ go get github.com/janbuecker/shopware-appserver-go
 ```
 
 ### Storage engines
@@ -82,6 +82,10 @@ Verifying the signature is done automatically for you.
 <webhooks>
     <webhook name="orderCompleted" url="https://appserver.com/webhook" event="checkout.order.placed"/>
 </webhooks>
+
+<permissions>
+   <read>order</read>
+</permissions>
 ```
 
 You can then register an event listener to the app server:
@@ -143,7 +147,7 @@ import (
    "log"
    "net/http"
    
-   appserver "github.com/shopwareLabs/GoAppserver"
+   appserver "github.com/janbuecker/shopware-appserver-go"
 )
 
 func main() {
@@ -218,4 +222,4 @@ func main() {
 
 ## About
 
-GoAppserver is a project of [shopware AG](https://shopware.com).
+The app server written in Go is an open-source project and maintained by @janbuecker.

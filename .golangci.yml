@@ -4,13 +4,12 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
     - exportloopref
     - exhaustive
     - gochecknoinits
     - goconst
     - gofmt
-    - goimports
+    - gci
     - goprintffuncname
     - gosec
     - gosimple
@@ -20,14 +19,11 @@ linters:
     - nakedret
     - noctx
     - nolintlint
-    - rowserrcheck
     - staticcheck
-    - structcheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
     - asciicheck
     - godot
@@ -37,13 +33,56 @@ linters:
     - errcheck
     - thelper
     - tparallel
-    - wastedassign
     - predeclared
     - nilerr
     - makezero
-    - ifshort
     - forbidigo
+    - errname
+    - ireturn
+    - nilnil
+    - tenv
+    - depguard
+    - execinquery
+    - nosprintfhostport
+    - asasalint
+    - usestdlibvars
+
+  # don't enable:
+  # - gocognit
+  # - gochecknoglobals
+  # - goerr113
+  # - interfacer
+  # - maligned
+  # - nestif
+  # - prealloc
+  # - revive
+  # - wsl
+  # - testpackage
+  # - depguard
+  # - dogsled
+  # - dupl
+  # - errcheck
+  # - funlen
+  # - golint
+  # - gomnd
+  # - lll
+  # - varnamelen
 
 linters-settings:
+  depguard:
+    list-type: denylist
+    packages:
+      - github.com/pkg/errors
   golint:
     min-confidence: 0
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(gitlab.shopware.com)
+
+issues:
+  exclude-rules:
+    - path: internal\/ports\/worker\/instance\.go
+      linters:
+        - nilnil

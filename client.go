@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -14,12 +14,12 @@ import (
 
 type APIClient struct {
 	appName     string
-	credentials *Credentials
+	credentials Credentials
 	tokenStore  *tokenStore
 	httpClient  *retryablehttp.Client
 }
 
-func newAPIClient(appName string, credentials *Credentials, tokenStore *tokenStore) *APIClient {
+func newAPIClient(appName string, credentials Credentials, tokenStore *tokenStore) *APIClient {
 	return &APIClient{
 		appName:     appName,
 		credentials: credentials,
@@ -60,7 +60,7 @@ func (c *APIClient) GetAppConfig() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	bodyString, err := ioutil.ReadAll(resp.Body)
+	bodyString, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
