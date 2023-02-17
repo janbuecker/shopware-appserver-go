@@ -2,22 +2,19 @@ package appserver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
-var (
-	ErrActionMissingAction = errors.New("missing action or entity")
-)
+var ErrActionMissingAction = errors.New("missing action or entity")
 
-type ErrActionHandlerNotFound struct {
+type ActionHandlerNotFoundError struct {
 	entity string
 	action string
 }
 
-func (e ErrActionHandlerNotFound) Error() string {
+func (e ActionHandlerNotFoundError) Error() string {
 	return fmt.Sprintf("no action handler found for entity %s, action %s", e.entity, e.action)
 }
 
@@ -46,13 +43,13 @@ func (srv *Server) HandleAction(req *http.Request) error {
 
 	body, err := extractBody(req)
 	if err != nil {
-		return errors.Wrap(err, "extract body")
+		return fmt.Errorf("extract body: %w", err)
 	}
 
 	actionReq := ActionRequest{}
 	err = json.Unmarshal(body, &actionReq)
 	if err != nil {
-		return errors.Wrap(err, "parse body")
+		return fmt.Errorf("parse body: %w", err)
 	}
 
 	if len(actionReq.Data.Action) == 0 || len(actionReq.Data.Entity) == 0 {
@@ -61,17 +58,17 @@ func (srv *Server) HandleAction(req *http.Request) error {
 
 	h, ok := srv.actions[actionReq.Data.Entity+actionReq.Data.Action]
 	if !ok {
-		return ErrActionHandlerNotFound{entity: actionReq.Data.Entity, action: actionReq.Data.Action}
+		return ActionHandlerNotFoundError{entity: actionReq.Data.Entity, action: actionReq.Data.Action}
 	}
 
-	credentials, err := srv.credentialStore.Get(actionReq.Source.ShopID)
+	credentials, err := srv.credentialStore.Get(req.Context(), actionReq.Source.ShopID)
 	if err != nil {
-		return errors.Wrap(err, "get shop credentials")
+		return fmt.Errorf("get shop credentials: %w", err)
 	}
 
 	err = h(actionReq, newAPIClient(srv.appName, credentials, srv.tokenStore))
 	if err != nil {
-		return errors.Wrap(err, "handler")
+		return fmt.Errorf("handler: %w", err)
 	}
 
 	return nil

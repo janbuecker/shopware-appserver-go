@@ -1,21 +1,25 @@
 package appserver
 
-import "sync"
+import (
+	"sync"
+
+	"golang.org/x/net/context"
+)
 
 var _ CredentialStore = (*MemoryCredentialStore)(nil)
 
 type MemoryCredentialStore struct {
-	credentials map[string]*Credentials
+	credentials map[string]Credentials
 	mapMu       sync.Mutex
 }
 
-func NewMemoryCredentialStore() CredentialStore {
+func NewMemoryCredentialStore() *MemoryCredentialStore {
 	return &MemoryCredentialStore{
-		credentials: make(map[string]*Credentials),
+		credentials: make(map[string]Credentials),
 	}
 }
 
-func (m *MemoryCredentialStore) Store(credentials *Credentials) error {
+func (m *MemoryCredentialStore) Store(ctx context.Context, credentials Credentials) error {
 	m.mapMu.Lock()
 	defer m.mapMu.Unlock()
 
@@ -24,15 +28,15 @@ func (m *MemoryCredentialStore) Store(credentials *Credentials) error {
 	return nil
 }
 
-func (m *MemoryCredentialStore) Get(shopID string) (*Credentials, error) {
+func (m *MemoryCredentialStore) Get(ctx context.Context, shopID string) (Credentials, error) {
 	if cred, ok := m.credentials[shopID]; ok {
 		return cred, nil
 	}
 
-	return nil, ErrCredentialsNotFound
+	return Credentials{}, ErrCredentialsNotFound
 }
 
-func (m *MemoryCredentialStore) Delete(shopID string) error {
+func (m *MemoryCredentialStore) Delete(ctx context.Context, shopID string) error {
 	if _, ok := m.credentials[shopID]; !ok {
 		return ErrCredentialsNotFound
 	}

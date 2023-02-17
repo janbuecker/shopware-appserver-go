@@ -1,10 +1,9 @@
 package appserver
 
 import (
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -82,13 +81,13 @@ func (srv *Server) Action(entity string, action string, handler ActionHandler) {
 }
 
 func extractBody(req *http.Request) ([]byte, error) {
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "read body")
+		return nil, fmt.Errorf("read body: %w", err)
 	}
 
 	if err := req.Body.Close(); err != nil {
-		return nil, errors.Wrap(err, "close body")
+		return nil, fmt.Errorf("close body: %w", err)
 	}
 
 	return body, nil

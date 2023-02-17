@@ -6,10 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io/ioutil"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
 type SignatureVerificationError struct {
@@ -27,7 +27,7 @@ func (e SignatureVerificationError) Unwrap() error {
 func (srv *Server) verifyPayloadSignature(req *http.Request) error {
 	body, err := extractBody(req)
 	if err != nil {
-		return SignatureVerificationError{err: errors.Wrap(err, "extract request body")}
+		return SignatureVerificationError{err: fmt.Errorf("extract request body: %w", err)}
 	}
 
 	if len(body) == 0 {
@@ -35,21 +35,21 @@ func (srv *Server) verifyPayloadSignature(req *http.Request) error {
 	}
 
 	// copy body back to the request
-	req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	req.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	appReq := AppRequest{}
 	if err := json.Unmarshal(body, &appReq); err != nil {
-		return SignatureVerificationError{err: errors.Wrap(err, "parse body")}
+		return SignatureVerificationError{err: fmt.Errorf("parse body: %w", err)}
 	}
 
-	credentials, err := srv.credentialStore.Get(appReq.Source.ShopID)
+	credentials, err := srv.credentialStore.Get(req.Context(), appReq.Source.ShopID)
 	if err != nil {
-		return SignatureVerificationError{err: errors.Wrap(err, "get shop credentials")}
+		return SignatureVerificationError{err: fmt.Errorf("get shop credentials: %w", err)}
 	}
 
 	signature, err := hex.DecodeString(req.Header.Get(HeaderPayloadSignature))
 	if err != nil {
-		return SignatureVerificationError{err: errors.Wrap(err, "decode signature")}
+		return SignatureVerificationError{err: fmt.Errorf("decode signature: %w", err)}
 	}
 
 	if err := verifySignature(body, signature, credentials.ShopSecret); err != nil {
