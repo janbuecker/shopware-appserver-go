@@ -25,25 +25,30 @@ func TestVerifyPayloadSignature(t *testing.T) {
 		ShopSecret: "mysecret",
 	}))
 
-	srv := appserver.NewServer("", "", "mysecret", appserver.WithCredentialStore(store))
+	srv := appserver.NewServer("", "mysecret", "", appserver.WithCredentialStore(store))
 	srv.Event("foo", func(_ context.Context, webhook appserver.WebhookRequest, api *appserver.APIClient) error {
 		return nil
 	})
 
-	// test without signature
-	req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(verifyPayloadSignatureTestPayload))
-	err := srv.HandleWebhook(req)
-	assert.EqualError(t, err, "invalid signature")
+	t.Run("without signature", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(verifyPayloadSignatureTestPayload))
+		err := srv.HandleWebhook(req)
+		assert.EqualError(t, err, "invalid signature")
+	})
 
 	// test with invalid signature
-	req = httptest.NewRequest(http.MethodPost, "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
-	req.Header.Set(appserver.HeaderPayloadSignature, "foo")
-	err = srv.HandleWebhook(req)
-	assert.EqualError(t, err, "invalid signature")
+	t.Run("invalid signature", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
+		req.Header.Set(appserver.ShopSignatureKey, "foo")
+		err := srv.HandleWebhook(req)
+		assert.EqualError(t, err, "invalid signature")
+	})
 
 	// test with valid signature
-	req = httptest.NewRequest(http.MethodPost, "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
-	req.Header.Set(appserver.HeaderPayloadSignature, verifyPayloadSignatureTestSignature)
-	err = srv.HandleWebhook(req)
-	assert.NoError(t, err)
+	t.Run("valid signature", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/signature", strings.NewReader(verifyPayloadSignatureTestPayload))
+		req.Header.Set(appserver.ShopSignatureKey, verifyPayloadSignatureTestSignature)
+		err := srv.HandleWebhook(req)
+		assert.NoError(t, err)
+	})
 }

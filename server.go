@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	HeaderAppSignature     = "shopware-app-signature"
-	HeaderPayloadSignature = "shopware-shop-signature"
+	AppSignatureKey  = "shopware-app-signature"
+	ShopSignatureKey = "shopware-shop-signature"
 )
 
 type ServerOpt func(s *Server)

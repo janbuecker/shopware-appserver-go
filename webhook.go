@@ -29,7 +29,7 @@ type WebhookRequest struct {
 	} `json:"data"`
 }
 
-func (srv Server) HandleWebhook(req *http.Request) error {
+func (srv *Server) HandleWebhook(req *http.Request) error {
 	if err := srv.verifyPayloadSignature(req); err != nil {
 		return err
 	}

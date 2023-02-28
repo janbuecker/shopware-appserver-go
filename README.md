@@ -32,32 +32,10 @@ $ go get github.com/janbuecker/shopware-appserver-go
 
 ### Storage engines
 
-The app server comes with two storage engines included, in-memory and [bbolt](https://github.com/etcd-io/bbolt).
-
-#### in-memory (default)
+The app server comes with one storage engine included: in-memory.
 
 This storage resets on every restart of the server and should only be used for quick-start purposes.
 All information is lost when the process is killed. This storage is used by default.
-
-#### bbolt
-
-bbolt is a key/value store based on files to provide a simple, fast, and reliable database for projects
-that don't require a full database server such as Postgres or MySQL
-
-```go
-store, err := appserver.NewBBoltStore("./mydb.db")
-if err != nil {
-    log.Fatal(err)
-}
-defer store.Close()
-
-srv := appserver.NewServer(
-    "AppName",
-    "AppSecret",
-    "https://appserver.com/setup/register-confirm",
-    appserver.WithCredentialStore(store),
-)
-```
 
 ### Events
 
@@ -80,7 +58,7 @@ Verifying the signature is done automatically for you.
 
 ```xml
 <webhooks>
-    <webhook name="orderCompleted" url="https://appserver.com/webhook" event="checkout.order.placed"/>
+    <webhook name="orderCompleted" url="https://appserver.com/webhooks" event="checkout.order.placed"/>
 </webhooks>
 
 <permissions>
@@ -91,7 +69,7 @@ Verifying the signature is done automatically for you.
 You can then register an event listener to the app server:
 
 ```go
-srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.APIClient) error {
+srv.Event("checkout.order.placed", func(ctx context.Context, webhook appserver.WebhookRequest, api *appserver.APIClient) error {
     // do something on this event
 
     return nil
@@ -103,7 +81,7 @@ srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *a
 First, register a `POST` route in your web server and use `HandleAction` inside the handler:
 
 ```go
-mux.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
+mux.HandleFunc("/actions", func(w http.ResponseWriter, r *http.Request) {
     if err := srv.HandleAction(r); err != nil {
       // handle errors
    }
@@ -112,14 +90,14 @@ mux.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-To listen on a click on an action button, add the action button to your `manifest.xml` file in your app and point it to `/action`.
+To listen on a click on an action button, add the action button to your `manifest.xml` file in your app and point it to your actions endpoint.
 Verifying the signature is done automatically for you.
 
 **manifest.xml**
 
 ```xml
 <admin>
-    <action-button action="doSomething" entity="product" view="detail" url="https://appserver.com/action">
+    <action-button action="doSomething" entity="product" view="detail" url="https://appserver.com/actions">
         <label>do something</label>
     </action-button>
 </admin>
@@ -128,7 +106,7 @@ Verifying the signature is done automatically for you.
 You can then register an admin action listener to the app server:
 
 ```go
-srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.APIClient) error {
+srv.Action("product", "doSomething", func(ctx context.Context, action appserver.ActionRequest, api *appserver.APIClient) error {
     // do something when someone clicks the action button
 
     return nil
@@ -158,14 +136,14 @@ func main() {
    )
 
    // event listener
-   srv.Event("checkout.order.placed", func(webhook appserver.WebhookRequest, api *appserver.APIClient) error {
+   srv.Event("checkout.order.placed", func(ctx context.Context, webhook appserver.WebhookRequest, api *appserver.APIClient) error {
       // do something on this event
       
       return nil
    })
 
    // action buttons
-   srv.Action("product", "doSomething", func(action appserver.ActionRequest, api *appserver.APIClient) error {
+   srv.Action("product", "doSomething", func(ctx context.Context, action appserver.ActionRequest, api *appserver.APIClient) error {
       // do something when someone clicks the action button
       
       return nil
@@ -173,7 +151,7 @@ func main() {
    
    // register routes and start server
    mux := http.NewServeMux()
-   mux.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
+   mux.HandleFunc("/webhooks", func(w http.ResponseWriter, r *http.Request) {
       if err := srv.HandleWebhook(r); err != nil {
          http.Error(w, err.Error(), http.StatusBadRequest)
          return
@@ -181,7 +159,7 @@ func main() {
 
       w.WriteHeader(200)
    })
-   mux.HandleFunc("/action", func(w http.ResponseWriter, r *http.Request) {
+   mux.HandleFunc("/actions", func(w http.ResponseWriter, r *http.Request) {
       if err := srv.HandleAction(r); err != nil {
          http.Error(w, err.Error(), http.StatusBadRequest)
          return

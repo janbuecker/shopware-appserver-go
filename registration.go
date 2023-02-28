@@ -19,13 +19,13 @@ type RegistrationResponse struct {
 	ConfirmationURL string `json:"confirmation_url"`
 }
 
-func (srv Server) HandleRegistration(req *http.Request) (RegistrationResponse, error) {
+func (srv *Server) HandleRegistration(req *http.Request) (RegistrationResponse, error) {
 	query, err := url.QueryUnescape(req.URL.Query().Encode())
 	if err != nil {
 		return RegistrationResponse{}, SignatureVerificationError{err: fmt.Errorf("encode query: %w", err)}
 	}
 
-	signature, err := hex.DecodeString(req.Header.Get(HeaderAppSignature))
+	signature, err := hex.DecodeString(req.Header.Get(AppSignatureKey))
 	if err != nil {
 		return RegistrationResponse{}, SignatureVerificationError{err: fmt.Errorf("decode signature: %w", err)}
 	}
@@ -57,7 +57,7 @@ func (srv Server) HandleRegistration(req *http.Request) (RegistrationResponse, e
 	}, nil
 }
 
-func (srv Server) HandleConfirm(req *http.Request) error {
+func (srv *Server) HandleConfirm(req *http.Request) error {
 	body, err := extractBody(req)
 	if err != nil {
 		return fmt.Errorf("extract request body: %w", err)

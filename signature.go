@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 type SignatureVerificationError struct {
@@ -47,12 +49,44 @@ func (srv *Server) verifyPayloadSignature(req *http.Request) error {
 		return SignatureVerificationError{err: fmt.Errorf("get shop credentials: %w", err)}
 	}
 
-	signature, err := hex.DecodeString(req.Header.Get(HeaderPayloadSignature))
+	signature, err := hex.DecodeString(req.Header.Get(ShopSignatureKey))
 	if err != nil {
 		return SignatureVerificationError{err: fmt.Errorf("decode signature: %w", err)}
 	}
 
 	if err := verifySignature(body, signature, credentials.ShopSecret); err != nil {
+		return SignatureVerificationError{err: err}
+	}
+
+	return nil
+}
+
+func (srv *Server) verifyQuerySignature(req *http.Request) error {
+	shopID := req.URL.Query().Get("shop-id")
+	if shopID == "" {
+		return SignatureVerificationError{err: errors.New("missing query parameter: shop-id")}
+	}
+
+	signature, err := hex.DecodeString(req.URL.Query().Get(ShopSignatureKey))
+	if err != nil {
+		return SignatureVerificationError{err: fmt.Errorf("decode signature: %w", err)}
+	}
+
+	// Go sorts the query internally by key, so it's hard to replicate Shopware's behaviour here.
+	// The signature needs be calculated on the raw query string, because that's what Shopware does and expects. The
+	// tests in Shopware indicate, that the signature key/value should just be replaced with an empty string. It works.
+	query := strings.ReplaceAll(req.URL.RawQuery, fmt.Sprintf("&%s=%s", ShopSignatureKey, req.URL.Query().Get(ShopSignatureKey)), "")
+	query, err = url.QueryUnescape(query)
+	if err != nil {
+		return SignatureVerificationError{err: fmt.Errorf("encode query: %w", err)}
+	}
+
+	credentials, err := srv.credentialStore.Get(req.Context(), shopID)
+	if err != nil {
+		return SignatureVerificationError{err: fmt.Errorf("get shop credentials: %w", err)}
+	}
+
+	if err := verifySignature([]byte(query), signature, credentials.ShopSecret); err != nil {
 		return SignatureVerificationError{err: err}
 	}
 
